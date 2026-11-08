@@ -8,15 +8,15 @@ window.FAIR_CONFIG = {
     50: {
       label: 'XDC Network',
       rpc: 'https://rpc.plugin.global/xdcmainnet',
-      factory: '',            // FairFactory address on XDC Network (set after deploying)
-      factoryBlock: 0,        // block the factory was deployed in (speeds up the stats page)
+      factory: '0xcF60c53CcfA144B1810BCaabb2D2359C1A264e8D',            // FairFactory address on XDC Network (set after deploying)
+      factoryBlock: 109191074,        // block the factory was deployed in (speeds up the stats page)
       explorer: 'https://xdcscan.com'
     },
     51: {
       label: 'Practice (test network)',
       rpc: 'https://rpc.plugin.global/xdcapothem',
-      factory: '',            // FairFactory address on Apothem (set after deploying)
-      factoryBlock: 0,
+      factory: '0xCa69a56badE909a07Ba6b7533E056F93f06037dc',            // FairFactory address on Apothem (set after deploying)
+      factoryBlock: 85118345,
       explorer: 'https://testnet.xdcscan.com'
     }
   },
