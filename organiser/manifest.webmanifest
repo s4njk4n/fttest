@@ -1,0 +1,32 @@
+{
+  "id": "./?app=organiser",
+  "name": "Fair Organiser",
+  "short_name": "Organiser",
+  "description": "Set up and run your fair",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F9FC",
+  "theme_color": "#FFFFFF",
+  "icons": [
+    {
+      "src": "../icons/organiser-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/organiser-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/organiser-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

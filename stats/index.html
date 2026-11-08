@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fair Tickets in numbers</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../shared/app.css">
+</head>
+<body>
+<header class="topbar"><span class="mark-slot"></span><div class="title"><b>Fair Tickets in numbers</b><small>Totals across all fairs</small></div></header>
+<main>
+  <section data-view="stats" hidden>
+    <div class="seg" id="netSeg"><button data-n="50" class="on">XDC Network</button><button data-n="51">Practice</button></div>
+    <div class="card"><div class="stats">
+      <div class="stat"><b id="fairs">–</b><span>fairs created</span></div>
+      <div class="stat"><b id="txs">–</b><span>on-chain transactions</span></div>
+      <div class="stat"><b id="sales">–</b><span>booth sales</span></div>
+      <div class="stat"><b id="charges">–</b><span>stall charges</span></div>
+      <div class="stat"><b id="tickets">–</b><span>tickets sold</span></div>
+      <div class="stat"><b id="refunds">–</b><span>refunds and undos</span></div>
+    </div></div>
+    <div class="card"><h3>Fairs created by month</h3><ul class="list" id="months"></ul></div>
+    <p class="small muted" id="prog"></p>
+  </section>
+</main>
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script>
+(async function () {
+  const F = window.Fair, { $, $$ } = F;
+  const params = new URLSearchParams(location.search);
+  if (params.get('net') === 'test') F.store.set('net', 51); else if (!params.get('rpc')) F.store.set('net', 50);
+  await F.start('stats', { needsFair: false });
+  $$('[data-n]').forEach((b) => { b.classList.toggle('on', Number(b.dataset.n) === (F.isPractice() ? 51 : 50)); b.onclick = () => { location.search = b.dataset.n === '51' ? '?net=test' : ''; }; });
+  F.showView('stats');
+  const n = F.network();
+  if (!n.factory) { $('#prog').textContent = 'Fair Tickets isn\'t set up on this network yet.'; return; }
+  const from = Number(n.factoryBlock || 0);
+  $('#prog').textContent = 'Counting…';
+  const created = await F.scanLogs([F.T.FairCreated], from, (p) => ($('#prog').textContent = 'Finding fairs… ' + Math.round(p * 100) + '%'), n.factory);
+  const fairs = created.logs.map((l) => F.factoryIface.parseLog(l)).map((e) => e.args.fair);
+  $('#fairs').textContent = fairs.length;
+  const blocks = created.logs.map((l) => parseInt(l.blockNumber, 16));
+  const times = await F.blockTimes(blocks);
+  const months = {};
+  blocks.forEach((b) => { const t = times[b]; if (!t) return; const k = new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'long' }); months[k] = (months[k] || 0) + 1; });
+  $('#months').innerHTML = Object.entries(months).map(([k, v]) => '<li><div class="grow"><b>' + k + '</b></div><div class="amt">' + v + '</div></li>').join('') || '<li class="empty">None yet.</li>';
+  const txs = new Set(created.logs.map((l) => l.transactionHash));
+  let sales = 0, charges = 0, refunds = 0, tickets = 0n;
+  const topics = [[F.T.Sold, F.T.Charged, F.T.Refunded, F.T.SaleUndone, F.T.Corrected, F.T.StaffSet, F.T.Closed, F.T.FamilyGroupSet]];
+  for (let i = 0; i < fairs.length; i += 20) {
+    const chunk = fairs.slice(i, i + 20);
+    const res = await F.scanLogs(topics, from, (p) => ($('#prog').textContent = 'Counting activity… fairs ' + (i + 1) + '–' + (i + chunk.length) + ' of ' + fairs.length), chunk);
+    for (const l of res.logs) {
+      txs.add(l.transactionHash);
+      if (l.topics[0] === F.T.Sold) { sales++; const e = F.fairIface.parseLog(l); if (Number(e.args.method) !== 2) tickets += e.args.amount; }
+      if (l.topics[0] === F.T.Charged) charges++;
+      if (l.topics[0] === F.T.Refunded || l.topics[0] === F.T.SaleUndone) refunds++;
+    }
+  }
+  $('#txs').textContent = txs.size.toLocaleString(); $('#sales').textContent = sales.toLocaleString(); $('#charges').textContent = charges.toLocaleString();
+  $('#refunds').textContent = refunds.toLocaleString(); $('#tickets').textContent = F.fmt(tickets);
+  $('#prog').textContent = 'Totals across every Fair Tickets fair. Individual fairs are not shown.';
+})();
+</script>
+</body>
+</html>

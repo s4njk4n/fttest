@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fair Stall · Fair Tickets</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icons/stall-192.png">
+<link rel="apple-touch-icon" href="../icons/stall-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stall">
+<link rel="preload" href="/assets/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../shared/app.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="mark-slot"></span>
+  <div class="title"><b id="stallName">Fair Stall</b><small data-fair-name>&nbsp;</small></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings"></button>
+</header>
+
+<main>
+  <section data-view="sell" hidden>
+    <div id="creditWarn" class="notice warn" hidden></div>
+    <div id="joinNote" class="notice info" hidden>
+      <b>Not set up yet.</b> Show this phone's code to the organiser so they can add your stall.
+      <div><button class="btn small" id="showCode">Show my code</button></div>
+    </div>
+    <div id="noItems" class="notice info" hidden>Add what you sell for one-tap charging, or type an amount.
+      <div><button class="btn small" id="addFirst">Add items</button></div></div>
+    <div class="items" id="items"></div>
+    <div class="card" id="cartCard" hidden>
+      <h3>This sale</h3>
+      <ul class="list" id="cart"></ul>
+      <div class="row" style="margin-top:8px"><b class="grow">Total</b><b id="cartTotal"></b></div>
+    </div>
+    <button class="btn huge" id="chargeBtn" disabled>Tap items to start a sale</button>
+    <div class="grid2">
+      <button class="btn secondary" id="customBtn">Type an amount</button>
+      <button class="btn secondary" id="clearBtn">Clear</button>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:6px"><h3 class="grow" style="margin:0">Recent</h3><button class="btn ghost small" id="todayBtn">Today</button></div>
+      <ul class="list" id="recent"></ul>
+    </div>
+    <button class="btn ghost small" id="menuBtn">Edit items and prices</button>
+  </section>
+
+  <section data-view="menu" hidden>
+    <button class="btn ghost small" data-sell>← Back</button>
+    <div class="card" style="margin-top:10px">
+      <h2>Items and prices</h2>
+      <ul class="list" id="menuList"></ul>
+      <label class="field" style="margin-top:12px"><span>Item name</span><input class="input" id="newName" maxlength="30" placeholder="e.g. Sausage sandwich"></label>
+      <label class="field"><span>Price in tickets</span><input class="input" id="newPrice" type="number" inputmode="decimal" min="0" step="0.5" placeholder="e.g. 3"></label>
+      <button class="btn" id="addItem">Add item</button>
+    </div>
+  </section>
+
+  <section data-view="today" hidden>
+    <button class="btn ghost small" data-sell>← Back</button>
+    <div class="card" style="margin-top:10px">
+      <h2>Today at this stall</h2>
+      <div class="stats">
+        <div class="stat"><b id="sTaken">–</b><span>tickets taken</span></div>
+        <div class="stat"><b id="sCount">–</b><span>sales</span></div>
+        <div class="stat"><b id="sRefunded">–</b><span>tickets refunded</span></div>
+        <div class="stat"><b id="sHeld">–</b><span>tickets on this phone</span></div>
+      </div>
+    </div>
+    <div class="card"><h3>All sales</h3><ul class="list" id="allList"></ul></div>
+  </section>
+
+  <section data-view="mycode" hidden>
+    <div class="card center">
+      <h2>Show this to the organiser</h2>
+      <p class="muted">They scan it to add your stall.</p>
+      <div class="qr" id="myQr"></div>
+      <p class="muted small">This screen moves on by itself once you're added.</p>
+    </div>
+    <button class="btn secondary" data-sell>Back</button>
+  </section>
+
+  <section data-view="closed" hidden>
+    <div class="card hero"><h1>The fair has closed</h1><p class="muted">Thanks for running your stall!</p><div id="returnNote"></div></div>
+    <button class="btn secondary" id="closedToday">See this stall's totals</button>
+  </section>
+</main>
+
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/vendor/jsQR.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script src="../shared/staff.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

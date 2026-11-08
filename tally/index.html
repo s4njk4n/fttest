@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live tally · Fair Tickets</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../shared/app.css">
+<style>
+  body { padding: 0; min-height: 100vh; }
+  .board { max-width: 1400px; margin: 0 auto; padding: clamp(20px, 4vw, 56px); display: grid; gap: clamp(20px, 3vw, 40px); grid-template-columns: 1fr; }
+  @media (min-width: 1000px) { .board { grid-template-columns: 1fr 340px; } }
+  .board h1 { font-size: clamp(2rem, 4.5vw, 4rem); letter-spacing: -0.03em; margin: 0; }
+  .board .sub { color: var(--mist); font-size: clamp(1rem, 1.8vw, 1.5rem); margin: 4px 0 0; }
+  .total { font-size: clamp(1.1rem, 2vw, 1.6rem); color: var(--mist); }
+  .total b { color: var(--ink); font-size: clamp(2.5rem, 6vw, 5rem); display: block; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .lb .bar-row { margin-bottom: clamp(14px, 2vw, 26px); }
+  .lb .lbl { font-size: clamp(1.2rem, 2.4vw, 2.1rem); align-items: baseline; }
+  .lb .lbl span:last-child { font-variant-numeric: tabular-nums; }
+  .lb .track { height: clamp(18px, 2.6vw, 40px); }
+  .lb .fill { transition: width 1s ease; box-shadow: inset 0 0 0 1px rgb(15 30 51 / 0.15); }
+  .rank { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--deep); font-size: 0.75em; margin-right: 10px; }
+  .side .card { text-align: center; }
+  .feat b { font-size: clamp(1.8rem, 3vw, 2.6rem); display: block; font-variant-numeric: tabular-nums; }
+  .join .qr { max-width: 240px; }
+  .foot { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--mist); font-size: 1rem; padding: 0 0 24px; }
+  .foot svg { width: 22px; height: 22px; }
+</style>
+</head>
+<body class="role-tally">
+<main style="max-width:none;padding:0">
+  <section data-view="board" hidden>
+    <div class="board">
+      <div>
+        <h1 data-fair-name>&nbsp;</h1>
+        <p class="sub" id="status">Live tally</p>
+        <div class="total" style="margin:clamp(16px,3vw,36px) 0"><b id="total">0</b>tickets bought today</div>
+        <div class="lb" id="lb"></div>
+      </div>
+      <div class="side">
+        <div id="feat"></div>
+        <div class="card join"><h3>Get your tickets</h3><div class="qr" id="joinQr"></div><p class="muted small">Scan with your phone's camera</p></div>
+      </div>
+    </div>
+    <div class="foot" id="foot"></div>
+  </section>
+</main>
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/vendor/jsQR.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script>
+(async function () {
+  const F = window.Fair, { $, esc } = F;
+  await F.start('tally', { fairHint: 'Open the live tally link from the organiser\'s app.' });
+  $('.credit') && $('.credit').remove();
+  $('#foot').innerHTML = F.BEACON.replace('class="mark"', '') + 'Fair Tickets by XDC Outpost · xdcoutpost.xyz';
+  $('#joinQr').innerHTML = F.qrSvg(F.appUrl('family'));
+  F.track('tally/opened');
+  const sold = F.logCache('tally.sold', [F.T.Sold]), undone = F.logCache('tally.undo', [F.T.SaleUndone]);
+  const charged = F.logCache('tally.charged', [F.T.Charged]), refunded = F.logCache('tally.refunded', [F.T.Refunded]);
+  async function update() {
+    try {
+      const info = await F.loadInfo(true);
+      const [s, u, c, r, staff] = await Promise.all([sold.update(), undone.update(), charged.update(), refunded.update(), F.staffList()]);
+      const sales = {}, groups = {}; let total = 0n;
+      s.map(F.parse).forEach((e) => { const m = Number(e.args.method); sales[e.args.id.toString()] = { m, g: Number(e.args.group) }; if (m !== 2) { total += e.args.amount; groups[Number(e.args.group)] = (groups[Number(e.args.group)] || 0n) + e.args.amount; } });
+      u.map(F.parse).forEach((e) => { const x = sales[e.args.id.toString()]; if (x && x.m !== 2) { total -= e.args.amount; groups[x.g] = (groups[x.g] || 0n) - e.args.amount; } });
+      $('#total').textContent = F.fmt(total);
+      $('#status').textContent = info.isOpen ? 'Live tally · updates every 15 seconds' : 'Final results';
+      const list = info.groups.map((g) => ({ g, v: groups[g.id] || 0n })).sort((a, b) => (b.v > a.v ? 1 : b.v < a.v ? -1 : 0));
+      const max = list.reduce((m, x) => (x.v > m ? x.v : m), 1n);
+      $('#lb').innerHTML = list.map((x, i) => '<div class="bar-row"><div class="lbl"><span><span class="rank">' + (i + 1) + '</span>' + esc(x.g.name) + '</span><span>' + F.fmt(x.v) + '</span></div><div class="track"><div class="fill" style="background:' + x.g.colour + ';width:' + Number(x.v * 100n / max) + '%"></div></div></div>').join('') ||
+        '<p class="muted">Every ticket bought helps ' + esc(info.name) + '. Thank you!</p>';
+      const st = {}; c.map(F.parse).forEach((e) => { const k = e.args.stall.toLowerCase(); st[k] = (st[k] || 0n) + e.args.amount; });
+      r.map(F.parse).forEach((e) => { const k = e.args.stall.toLowerCase(); st[k] = (st[k] || 0n) - e.args.amount; });
+      const feat = staff.filter((m) => m.featured && m.role === F.ROLES.STALL).slice(0, 2);
+      $('#feat').innerHTML = feat.map((m) => '<div class="card feat"><div class="muted">' + esc(m.name) + '</div><b>' + F.fmt(st[m.address.toLowerCase()] || 0n) + '</b><div class="muted small">tickets</div></div>').join('');
+      F.showView('board');
+    } catch (e) { }
+  }
+  await update();
+  setInterval(update, 15000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ticket Booth · Fair Tickets</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icons/booth-192.png">
+<link rel="apple-touch-icon" href="../icons/booth-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Booth">
+<link rel="preload" href="/assets/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../shared/app.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="mark-slot"></span>
+  <div class="title"><b id="boothName">Ticket Booth</b><small data-fair-name>&nbsp;</small></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings"></button>
+</header>
+
+<main>
+  <section data-view="home" hidden>
+    <div id="creditWarn" class="notice warn" hidden></div>
+    <div id="joinNote" class="notice info" hidden>
+      <b>Not set up yet.</b> Show this phone's code to the organiser so they can add this booth and load its tickets.
+      <div><button class="btn small" id="showCode">Show my code</button></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div class="grow"><div class="muted small">Tickets left to sell</div><div style="font-size:1.8rem;font-weight:600" id="float">–</div></div>
+        <div class="pill" id="price"></div></div>
+    </div>
+
+    <h3>Sell tickets: tap what they paid</h3>
+    <div class="amounts" id="quick"></div>
+    <button class="btn secondary" id="otherBtn">Other amount</button>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:6px"><h3 class="grow" style="margin:0">Recent sales</h3><button class="btn ghost small" id="totalsBtn">Totals</button></div>
+      <ul class="list" id="recent"></ul>
+    </div>
+  </section>
+
+  <section data-view="totals" hidden>
+    <button class="btn ghost small" data-home>← Back</button>
+    <div class="card" style="margin-top:10px">
+      <h2>Today at this booth</h2>
+      <div class="stats">
+        <div class="stat"><b id="cCash">–</b><span>cash</span></div>
+        <div class="stat"><b id="cCard">–</b><span>card</span></div>
+        <div class="stat"><b id="cReissue">–</b><span>tickets reissued</span></div>
+        <div class="stat"><b id="cSales">–</b><span>sales</span></div>
+      </div>
+      <p class="small muted" style="margin-top:12px">Cash in the tin should match the cash figure. Undone sales are already taken off.</p>
+    </div>
+    <div class="card"><h3>All sales</h3><ul class="list" id="allList"></ul></div>
+  </section>
+
+  <section data-view="mycode" hidden>
+    <div class="card center">
+      <h2>Show this to the organiser</h2>
+      <p class="muted">They scan it to add this phone as a ticket booth and load its tickets.</p>
+      <div class="qr" id="myQr"></div>
+      <p class="muted small">This screen moves on by itself once you're added.</p>
+    </div>
+    <button class="btn secondary" data-home>Back</button>
+  </section>
+
+  <section data-view="closed" hidden>
+    <div class="card hero"><h1>The fair has closed</h1><p class="muted">Thanks for running the ticket booth!</p><div id="returnNote"></div></div>
+    <button class="btn secondary" id="closedTotals">See this booth's totals</button>
+  </section>
+</main>
+
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/vendor/jsQR.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script src="../shared/staff.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

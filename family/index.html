@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fair Tickets</title>
+<meta name="description" content="Your fair tickets on your phone">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icons/family-192.png">
+<link rel="apple-touch-icon" href="../icons/family-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tickets">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preload" href="/assets/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../shared/app.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="mark-slot"></span>
+  <div class="title"><b>Fair Tickets</b><small data-fair-name>&nbsp;</small></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings"></button>
+</header>
+
+<main>
+  <section data-view="home" hidden>
+    <div id="backupNag" class="notice warn" hidden>
+      <b>Save your backup</b> so your tickets can't be lost.
+      <div><button class="btn small" id="backupNow">Save it now</button></div>
+    </div>
+    <div id="lowNote" class="notice info" hidden><b>Running low.</b> Visit the ticket booth for more.</div>
+
+    <div class="card hero">
+      <div class="muted small">You have</div>
+      <div class="big-number" id="bal">–</div>
+      <div class="unit" id="balUnit">tickets</div>
+      <div id="groupPill" style="margin-top:10px" hidden></div>
+    </div>
+
+    <div class="card">
+      <div class="qr" id="qr" aria-label="Your ticket code"></div>
+      <div class="qr-timer"><div id="qrTimer"></div></div>
+      <p class="qr-caption">Show this code at the <b>ticket booth</b> to get tickets,<br>and at any <b>stall</b> to use them.</p>
+    </div>
+
+    <div class="card">
+      <h3>Recent</h3>
+      <ul class="list" id="recent"></ul>
+      <button class="btn ghost small" id="allBtn" hidden>See everything</button>
+    </div>
+
+    <div id="installTip" class="notice info" hidden>
+      <b>Tip:</b> add this page to your home screen so it's easy to find today.
+      <div class="row" style="margin-top:8px"><button class="btn small" id="installTipGo">Show me how</button><button class="link" id="installTipX">No thanks</button></div>
+    </div>
+  </section>
+
+  <section data-view="history" hidden>
+    <button class="btn ghost small" data-home>← Back</button>
+    <div class="card" style="margin-top:10px"><h3>Everything</h3><ul class="list" id="allList"></ul></div>
+  </section>
+
+  <section data-view="closed" hidden>
+    <div class="card hero">
+      <h1>Thank you!</h1>
+      <p id="closedMsg" class="muted"></p>
+      <div id="closedGroup"></div>
+    </div>
+    <a class="btn secondary" id="tallyLink" href="#">See the final results</a>
+    <div class="card flat center">
+      <p><b>Running your own fair or event?</b><br>It's super simple and free to use.</p>
+      <a class="btn" href="https://xdcoutpost.xyz/Fair_Tickets/" target="_blank" rel="noopener">Find out more</a>
+    </div>
+    <div class="card">
+      <h3>Your tickets</h3>
+      <ul class="list" id="closedList"></ul>
+    </div>
+  </section>
+
+  <section data-view="unofficial" hidden>
+    <div class="card hero">
+      <h1>Not an official fair</h1>
+      <p class="muted">This link wasn't made by Fair Tickets, so its tickets won't work at real fair stalls. Ask the fair organiser for the right link.</p>
+    </div>
+  </section>
+</main>
+
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/vendor/jsQR.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

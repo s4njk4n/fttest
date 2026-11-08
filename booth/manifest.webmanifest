@@ -1,0 +1,32 @@
+{
+  "id": "./?app=booth",
+  "name": "Ticket Booth",
+  "short_name": "Booth",
+  "description": "Sell fair tickets at the booth",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F9FC",
+  "theme_color": "#FFFFFF",
+  "icons": [
+    {
+      "src": "../icons/booth-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/booth-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/booth-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

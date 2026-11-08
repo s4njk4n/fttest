@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fair Organiser · Fair Tickets</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icons/organiser-192.png">
+<link rel="apple-touch-icon" href="../icons/organiser-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Organiser">
+<link rel="preload" href="/assets/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../shared/app.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="mark-slot"></span>
+  <div class="title"><b>Fair Organiser</b><small data-fair-name>&nbsp;</small></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings"></button>
+</header>
+
+<main class="wide">
+  <section data-view="dash" hidden>
+    <div id="statusNote"></div>
+
+    <div class="grid2">
+      <div class="card"><div class="muted small">Fee credit (XDC)</div><div style="font-size:1.6rem;font-weight:600" id="xdcBal">–</div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn small" id="addXdcBtn">Add XDC</button><button class="btn secondary small" id="sendXdcBtn">Send XDC</button></div></div>
+      <div class="card"><div class="muted small">Tickets with the organiser</div><div style="font-size:1.6rem;font-weight:600" id="orgTix">–</div>
+        <div class="muted small" id="priceLine"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Your team</h2><button class="btn small" id="addHelperBtn">Add a helper</button></div>
+      <p class="small muted">Helpers open their link, then show their phone's code. Scan it here to add them.</p>
+      <ul class="list" id="team"></ul>
+    </div>
+
+    <div class="grid2">
+      <button class="btn secondary" id="linksBtn">Links and posters</button>
+      <button class="btn secondary" id="fixBtn">Fix a family's tickets</button>
+      <button class="btn secondary" id="reportBtn">Report and downloads</button>
+      <a class="btn secondary" id="tallyBtn" target="_blank" rel="noopener">Live tally screen</a>
+      <button class="btn secondary" id="fairSettingsBtn">Fair settings</button>
+      <button class="btn danger" id="closeBtn">Close the fair</button>
+    </div>
+  </section>
+
+  <section data-view="links" hidden>
+    <button class="btn ghost small" data-dash>← Back</button>
+    <div class="card" style="margin-top:10px">
+      <h2>Links for your helpers and families</h2>
+      <p class="muted">Send each link to the right people, or print the posters.</p>
+      <div id="linkList"></div>
+    </div>
+  </section>
+
+  <section data-view="report" hidden>
+    <div id="repBody"></div>
+  </section>
+
+  <section data-view="poster" hidden>
+    <div class="no-print row" style="margin-bottom:12px"><button class="btn ghost small" data-links>← Back</button><button class="btn small" onclick="window.print()">Print</button></div>
+    <div id="posterBody"></div>
+  </section>
+</main>
+
+<script src="../config.js"></script>
+<script src="../shared/vendor/ethers.umd.min.js"></script>
+<script src="../shared/vendor/qrcode.js"></script>
+<script src="../shared/vendor/jsQR.js"></script>
+<script src="../shared/contracts.js"></script>
+<script src="../shared/core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
