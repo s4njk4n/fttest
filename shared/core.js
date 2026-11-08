@@ -161,7 +161,8 @@
   function setupAnalytics() {
     if (!/(^|\.)xdcoutpost\.xyz$/.test(location.hostname)) return;
     // Count pages without their query string, so fair addresses never leave the phone.
-    window.goatcounter = Object.assign(window.goatcounter || {}, { path: () => location.pathname.replace(/index\.html$/, '') });
+    // Practice (Apothem) visits are counted under /practice/... so they stay apart from real fairs.
+    window.goatcounter = Object.assign(window.goatcounter || {}, { path: () => (isPractice() ? '/practice' : '') + location.pathname.replace(/index\.html$/, '') });
     const s = document.createElement('script');
     s.src = '/assets/analytics.js';
     document.head.appendChild(s);
