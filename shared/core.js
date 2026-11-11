@@ -611,7 +611,7 @@
       };
       document.addEventListener('keydown', onKey);
       document.body.appendChild(ov);
-      if (onOpen) onOpen(ov);
+      if (onOpen) onOpen(ov, finish);
       const first = $('input,textarea', ov); if (first && !('ontouchstart' in window)) setTimeout(() => first.focus(), 50);
     });
   }
@@ -917,15 +917,16 @@
       '<p class="muted mono" style="margin-top:12px">Fair: ' + esc(state.info ? state.info.name : '-') + '<br>This phone: ' + esc(xdcAddr(myAddress()) || '-') + '<br>Fair code: ' + esc(xdcAddr(fairAddress()) || '-') + '<br>Network: ' + esc(n.label) + ' · App ' + VERSION + '</p>' +
       '<button class="btn secondary small" data-a="fair">Change fair</button> <button class="btn danger small" data-a="wipe">Remove from this phone</button></details>' +
       '<p class="small muted center">Fair Tickets by <a href="' + esc(CFG.builtByUrl) + '" target="_blank" rel="noopener">' + esc(CFG.builtBy) + '</a> · <a href="../terms.html" target="_blank">Terms of Use</a></p>';
-    let action = null;
-    await sheet({
+    const r = await sheet({
       title: 'Settings', html, buttons: [{ label: 'Close', value: null, style: 'secondary' }],
-      onOpen: (ov) => {
-        $$('[data-a]', ov).forEach((b) => (b.onclick = () => { action = b.dataset.a; ov.remove(); handle(); }));
+      onOpen: (ov, close) => {
+        $$('[data-a]', ov).forEach((b) => (b.onclick = () => close(b.dataset.a)));
         $$('[data-other]', ov).forEach((b) => (b.onclick = () => { const x = others[Number(b.dataset.other)]; store.set('fair', x.address); if (x.chainId === 50 || x.chainId === 51) { store.set('net', x.chainId); store.del('dev'); } syncUrl(); location.reload(); }));
-        if (onExtra) onExtra(ov, (a) => { action = a; ov.remove(); handle(); });
+        if (onExtra) onExtra(ov, (a) => close(a));
       }
     });
+    const action = r.value;
+    await handle();
     async function handle() {
       if (action === 'backup') await backupSheet();
       else if (action === 'restore') { if (await restoreSheet()) { syncUrl(); location.reload(); } }

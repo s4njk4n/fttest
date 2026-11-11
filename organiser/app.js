@@ -274,8 +274,9 @@
       $('[data-ihint]', el).textContent = hint[role];
       $('[data-icopy]', el).onclick = () => F.copyText(url);
       $('[data-ishare]', el).onclick = async () => {
+        // Link inside the text only: SMS and some chat apps add a separate url field again, so it would appear twice.
         const text = F.state.info.name + ': ' + label[role] + '. Open this link on your phone and follow the steps: ' + url;
-        if (navigator.share) { try { await navigator.share({ title: F.state.info.name + ': ' + label[role], text, url }); } catch (e) { } } else F.copyText(url);
+        if (navigator.share) { try { await navigator.share({ text }); } catch (e) { } } else F.copyText(url);
       };
     };
     $$('[data-tab]', el).forEach((t) => (t.onclick = () => show(t.dataset.tab)));
