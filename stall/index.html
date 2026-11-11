@@ -25,8 +25,8 @@
   <section data-view="sell" hidden>
     <div id="creditWarn" class="notice warn" hidden></div>
     <div id="joinNote" class="notice info" hidden>
-      <b>Not set up yet.</b> Show this phone's code to the organiser so they can add your stall.
-      <div><button class="btn small" id="showCode">Show my code</button></div>
+      <span data-joinmsg><b>Not set up yet.</b> Show this phone's code to the organiser so they can add your stall.
+      </span><div><button class="btn small" id="showCode">Show my code</button></div>
     </div>
     <div id="noItems" class="notice info" hidden>Add what you sell for one-tap charging, or type an amount.
       <div><button class="btn small" id="addFirst">Add items</button></div></div>
@@ -56,6 +56,11 @@
       <label class="field" style="margin-top:12px"><span>Item name</span><input class="input" id="newName" maxlength="30" placeholder="e.g. Sausage sandwich"></label>
       <label class="field"><span>Price in tickets</span><input class="input" id="newPrice" type="number" inputmode="decimal" min="0" step="0.5" placeholder="e.g. 3"></label>
       <button class="btn" id="addItem">Add item</button>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Copy or share a price list</h3>
+      <p class="small muted">Got a price list from the organiser or another stall? Copy it here instead of typing it in.</p>
+      <div class="grid2"><button class="btn secondary small" id="importMenu">Copy a price list</button><button class="btn secondary small" id="shareMenu">Share this list</button></div>
     </div>
   </section>
 

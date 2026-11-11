@@ -8,7 +8,15 @@
   await F.start('booth', { fairHint: 'Open the booth link the organiser sent you, or scan the fair\'s QR code.' });
   if ((await F.isOfficial()) === false) { F.alertSheet('Not an official fair', 'This link wasn\'t made by Fair Tickets. Ask the organiser for the right link.'); return; }
   if (!F.store.get('booth.name')) F.store.set('booth.name', 'Ticket booth');
-  await S.setup('booth');
+  await S.setup('booth', [{
+    id: 'name',
+    render: () => ({
+      title: 'Name this booth',
+      html: '<p class="muted">Helps the organiser tell booths apart. Keep it simple, like where the booth is.</p><label class="field"><input class="input" id="nm" maxlength="30" placeholder="e.g. Front gate" value="' + esc(F.store.get('booth.name', '') === 'Ticket booth' ? '' : F.store.get('booth.name', '')) + '"></label>',
+      next: 'Next',
+      validate: (el) => { const v = $('#nm', el).value.trim(); F.store.set('booth.name', v || 'Ticket booth'); return null; }
+    })
+  }]);
   F.keepAwake();
 
   const D = F.CFG.defaults;
@@ -68,8 +76,7 @@
     try {
       float = await F.ticketBalance();
       $('#float').textContent = F.fmt(float);
-      const role = await S.myRole();
-      $('#joinNote').hidden = role === F.ROLES.BOOTH;
+      S.joinNote($('#joinNote'), await S.status('booth', $('#boothName')));
       S.creditCheck($('#creditWarn'));
       await loadSales();
       await renderSales();
@@ -189,15 +196,12 @@
   $$('[data-home]').forEach((b) => (b.onclick = () => (info.isOpen ? home() : F.showView('closed'))));
   $('#boothName').textContent = F.store.get('booth.name', 'Ticket booth');
   $('#settingsBtn').onclick = () => F.openSettings(
-    '<button class="btn secondary" data-x="code">Show this phone\'s code</button><button class="btn secondary" data-x="name">Name this booth</button><button class="btn secondary" data-x="return">Return leftover XDC</button>',
+    '<button class="btn secondary" data-x="code">Show this phone\'s code</button><button class="btn secondary" data-x="name">Booth name</button><button class="btn secondary" data-x="return">Return leftover XDC</button>',
     (ov, act) => { $('[data-x="code"]', ov).onclick = () => act('code'); $('[data-x="name"]', ov).onclick = () => act('name'); $('[data-x="return"]', ov).onclick = () => act('return'); }
   ).then(async (a) => {
     if (a === 'code') showCode();
     if (a === 'return') S.returnLeftover(null, true);
-    if (a === 'name') {
-      const r = await F.sheet({ title: 'Name this booth', html: '<label class="field"><input class="input" id="nm" maxlength="30" value="' + esc(F.store.get('booth.name', 'Ticket booth')) + '"></label>', buttons: [{ label: 'Save', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }], validate: (ov) => ($('#nm', ov).value.trim() ? null : 'Enter a name.') });
-      if (r.value) { F.store.set('booth.name', $('#nm', r.el).value.trim()); $('#boothName').textContent = F.store.get('booth.name'); }
-    }
+    if (a === 'name') await S.rename('booth', $('#boothName'));
   });
 
   // Keep the price, limits and open state current.
@@ -208,7 +212,7 @@
       if (cents() !== before) { renderQuick(); F.toast('Ticket price is now ' + F.dollars(cents() / 100), 'ok'); }
       if (!info.isOpen && document.body.dataset.current !== 'closed') { F.showView('closed'); S.returnLeftover($('#returnNote')); }
     } catch (e) { }
-  }, 60000);
+  }, 20000);
   setInterval(() => { if (document.visibilityState === 'visible' && document.body.dataset.current === 'home') refresh(); }, 15000);
 
   info = await F.loadInfo(true).catch(() => info);

@@ -64,8 +64,7 @@
   }
   async function refresh() {
     try {
-      const role = await S.myRole();
-      $('#joinNote').hidden = role === F.ROLES.STALL;
+      S.joinNote($('#joinNote'), await S.status('stall', $('#stallName')));
       S.creditCheck($('#creditWarn'));
       await loadCharges(); await renderRecent();
     } catch (e) { }
@@ -146,6 +145,22 @@
     if (!(price > 0)) return F.toast('Enter a price in tickets', 'bad');
     items.push({ name, price }); $('#newName').value = ''; $('#newPrice').value = ''; save(); F.toast('Added ' + name, 'ok');
   };
+  $('#importMenu').onclick = async () => {
+    const c = await F.scan({ title: 'Scan the price list', hint: 'On the organiser\'s or another stall\'s phone', check: (p) => (p.kind === 'M' ? null : 'That\'s not a price list. Ask them to tap Share this list.') });
+    if (!c) return;
+    const list = '<ul class="list">' + c.items.map((i) => '<li><div class="grow"><b>' + esc(i.name) + '</b></div><div class="amt">' + F.tix(i.price) + '</div></li>').join('') + '</ul>';
+    const r = await F.sheet({ title: c.items.length + (c.items.length === 1 ? ' item' : ' items'), html: list,
+      buttons: (items.length ? [{ label: 'Replace my list', value: 'replace' }, { label: 'Add to my list', value: 'add', style: 'secondary' }] : [{ label: 'Use this list', value: 'replace' }]).concat([{ label: 'Cancel', value: null, style: 'ghost' }]) });
+    if (!r.value) return;
+    items = r.value === 'replace' ? c.items : items.concat(c.items.filter((n) => !items.some((o) => o.name.toLowerCase() === n.name.toLowerCase())));
+    save(); F.toast('Price list copied', 'ok'); F.track('stall/menu-copied');
+  };
+  $('#shareMenu').onclick = () => {
+    if (!items.length) return F.toast('Add some items first', 'bad');
+    const code = F.Codes.menu(items);
+    F.sheet({ title: 'Share this price list', html: '<p class="muted">On the other stall\'s phone, tap Edit items and prices, then Copy a price list, and scan this.</p><div class="qr">' + F.qrSvg(code) + '</div><button class="btn secondary small" data-copy>Copy as text</button>',
+      buttons: [{ label: 'Done', value: null, style: 'secondary' }], onOpen: (ov) => ($('[data-copy]', ov).onclick = () => F.copyText(code)) });
+  };
   const openMenu = () => { renderMenu(); F.showView('menu'); };
   $('#menuBtn').onclick = openMenu; $('#addFirst').onclick = openMenu;
 
@@ -173,20 +188,17 @@
   $$('[data-sell]').forEach((b) => (b.onclick = () => (info.isOpen ? sell() : F.showView('closed'))));
   $('#stallName').textContent = stallName() || 'Fair Stall';
   $('#settingsBtn').onclick = () => F.openSettings(
-    '<button class="btn secondary" data-x="code">Show this phone\'s code</button><button class="btn secondary" data-x="name">Change stall name</button><button class="btn secondary" data-x="return">Return leftover XDC</button>',
+    '<button class="btn secondary" data-x="code">Show this phone\'s code</button><button class="btn secondary" data-x="name">Stall name</button><button class="btn secondary" data-x="return">Return leftover XDC</button>',
     (ov, act) => { $('[data-x="code"]', ov).onclick = () => act('code'); $('[data-x="name"]', ov).onclick = () => act('name'); $('[data-x="return"]', ov).onclick = () => act('return'); }
   ).then(async (a) => {
     if (a === 'code') showCode();
     if (a === 'return') S.returnLeftover(null, true);
-    if (a === 'name') {
-      const r = await F.sheet({ title: 'Stall name', html: '<p class="muted">Ask the organiser to update it too, so families see the new name.</p><label class="field"><input class="input" id="nm" maxlength="30" value="' + esc(stallName()) + '"></label>', buttons: [{ label: 'Save', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }], validate: (ov) => ($('#nm', ov).value.trim() ? null : 'Enter a name.') });
-      if (r.value) { F.store.set('stall.name', $('#nm', r.el).value.trim()); $('#stallName').textContent = stallName(); }
-    }
+    if (a === 'name') await S.rename('stall', $('#stallName'));
   });
 
   setInterval(async () => {
     try { info = await F.loadInfo(true); if (!info.isOpen && document.body.dataset.current !== 'closed') { F.showView('closed'); S.returnLeftover($('#returnNote')); } } catch (e) { }
-  }, 60000);
+  }, 20000);
   setInterval(() => { if (document.visibilityState === 'visible' && document.body.dataset.current === 'sell') refresh(); }, 15000);
 
   info = await F.loadInfo(true).catch(() => info);

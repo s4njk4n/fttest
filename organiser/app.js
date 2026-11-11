@@ -413,15 +413,34 @@
     await renderTeam();
   }
   async function renderTeam() {
-    try { team = (await F.staffList()).filter((m) => m.role !== F.ROLES.NONE); } catch (e) { }
+    let all = [];
+    try { all = await F.staffList(); team = all.filter((m) => m.role !== F.ROLES.NONE); } catch (e) { }
+    const xdcOn = {};
     const rows = await Promise.all(team.map(async (m) => {
       let t = null, x = null;
       try { [t, x] = await Promise.all([F.ticketBalance(m.address), F.creditBalance(m.address)]); } catch (e) { }
+      if (x !== null) xdcOn[m.address.toLowerCase()] = x;
       return '<li class="tap" data-m="' + m.address + '"><div class="ico">' + (m.role === F.ROLES.BOOTH ? F.ICON.ticket : F.ICON.bag) + '</div><div class="grow"><b>' + esc(m.name || (m.role === 1 ? 'Ticket booth' : 'Stall')) + (m.featured ? ' ★' : '') + '</b><span>' +
         (m.role === F.ROLES.BOOTH ? 'Ticket booth' : 'Stall') + (x !== null ? ' · ' + F.xdc(x) + ' XDC' : '') + '</span></div><div class="amt">' + (t !== null ? F.fmt(t) : '…') + '<div class="small muted" style="font-weight:400">tickets</div></div></li>';
     }));
     $('#team').innerHTML = rows.length ? rows.join('') : '<li class="empty">No helpers yet. Tap Invite to send them the link, then Add helpers to scan their phones.</li>';
     $$('#team [data-m]').forEach((li) => (li.onclick = () => memberActions(team.find((m) => F.sameAddr(m.address, li.dataset.m)))));
+    // Where the helpers' XDC is. Phones send it back by themselves; this just shows what's still out.
+    const dust = F.ethers.parseEther('0.01');
+    const removed = all.filter((m) => m.role === F.ROLES.NONE);
+    await Promise.all(removed.map(async (m) => { try { xdcOn[m.address.toLowerCase()] = await F.creditBalance(m.address); } catch (e) { } }));
+    const out = (list) => list.map((m) => xdcOn[m.address.toLowerCase()] || 0n).filter((x) => x > dust);
+    const note = [];
+    const sum = (a) => a.reduce((p, c) => p + c, 0n);
+    if (!F.state.info.isOpen) {
+      const left = out(all);
+      if (left.length) note.push('<b>' + F.xdc(sum(left)) + ' XDC is still on ' + left.length + (left.length === 1 ? ' helper phone.' : ' helper phones.') + '</b> Each phone sends it back to you by itself the next time its app is opened. Helpers don\'t need to tap anything.');
+      else if (all.length) note.push('All helper phones have returned their leftover XDC.');
+    } else {
+      const left = out(removed);
+      if (left.length) note.push(F.xdc(sum(left)) + ' XDC is on ' + left.length + (left.length === 1 ? ' removed phone.' : ' removed phones.') + ' It comes back to you by itself the next time each one opens the app.');
+    }
+    $('#teamXdc').innerHTML = note.length ? '<p class="small muted" style="margin:10px 0 0">' + note.join(' ') + '</p>' : '';
   }
 
   async function act(label, fn, after) {
@@ -452,9 +471,48 @@
       const s = await F.sheet({ title: 'Rename', html: '<label class="field"><input class="input" id="nn" maxlength="30" value="' + esc(m.name) + '"></label>', buttons: [{ label: 'Save', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }], validate: (ov) => ($('#nn', ov).value.trim() ? null : 'Enter a name.') });
       if (s.value) await act('Saving…', () => F.call('fair', 'setStaff', [m.address, m.role, $('#nn', s.el).value.trim(), m.featured, 0n]));
     }
-    if (a === 'remove' && await F.confirmSheet('Remove ' + esc(m.name) + '?', 'The phone stops working for this fair straight away.' + (isBooth ? ' Take its unsold tickets back first if you need them.' : ''), 'Remove', 'Cancel', true))
+    if (a === 'remove' && await F.confirmSheet('Remove ' + m.name + '?', 'The phone stops working for this fair straight away, and sends its leftover XDC back to you the next time its app is open.' + (isBooth ? ' Take its unsold tickets back first if you need them.' : ''), 'Remove', 'Cancel', true))
       await act('Removing…', () => F.call('fair', 'setStaff', [m.address, 0, m.name, false, 0n]));
   }
+
+  // ================================================================ price list for stalls
+  /** "Name, price" per line → items, or a plain-language error. */
+  function parsePriceList(text) {
+    const items = [];
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const k = lines[i].lastIndexOf(',');
+      const name = k > 0 ? lines[i].slice(0, k).trim().slice(0, 30) : '';
+      const price = k > 0 ? Math.round(Number(lines[i].slice(k + 1).trim()) * 100) / 100 : NaN;
+      if (!name || !(price > 0)) return { error: 'Line ' + (i + 1) + ' needs a name, a comma, then its price in tickets, like "Drink, 2".' };
+      items.push({ name, price });
+    }
+    return items.length ? { items } : { error: 'Add at least one item.' };
+  }
+  $('#priceListBtn').onclick = async () => {
+    const r = await F.sheet({
+      title: 'Price list for stalls',
+      html: '<p class="muted">Optional. Set prices once and stalls copy them by scanning, instead of typing them in. Stalls can still change their own list.</p>' +
+        '<label class="field"><span>One item per line: name, a comma, then the price in tickets</span><textarea class="input" id="pl" rows="8" placeholder="Sausage sandwich, 3&#10;Drink, 2&#10;Show bag, 10">' + esc(F.fstore.get('priceList', '')) + '</textarea></label>',
+      buttons: [{ label: 'Show the code', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }],
+      validate: (ov) => parsePriceList($('#pl', ov).value).error || null
+    });
+    if (!r.value) return;
+    const text = $('#pl', r.el).value.trim();
+    F.fstore.set('priceList', text);
+    const code = F.Codes.menu(parsePriceList(text).items);
+    F.track('organiser/price-list');
+    F.sheet({
+      title: 'Stalls: scan this',
+      html: '<p class="muted">On each stall phone: Edit items and prices, then Copy a price list. Several stalls can scan it one after another.</p><div class="qr">' + F.qrSvg(code) + '</div>' +
+        '<div class="grid2"><button class="btn secondary small" data-copy>Copy as text</button><button class="btn secondary small" data-share>Share</button></div><p class="small muted">Sharing sends it as text: stalls paste it using "Type or paste the code" on the scan screen.</p>',
+      buttons: [{ label: 'Done', value: null, style: 'secondary' }],
+      onOpen: (ov) => {
+        $('[data-copy]', ov).onclick = () => F.copyText(code);
+        $('[data-share]', ov).onclick = async () => { if (navigator.share) { try { await navigator.share({ text: code }); } catch (e) { } } else F.copyText(code); };
+      }
+    });
+  };
 
   // ================================================================ XDC
   $('#addXdcBtn').onclick = () => F.sheet({ title: 'Add XDC', html: '<p class="muted">Send XDC to this address. It covers network fees for you and your helper phones.</p>' + addXdcHtml(), buttons: [{ label: 'Done', value: null, style: 'secondary' }], onOpen: wireAddXdc }).then(dashboard);

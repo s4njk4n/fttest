@@ -559,9 +559,16 @@
   // Codes shown by helper phones so the organiser can add them: FTS:<B|S>:<address>:<name>
   const Codes = {
     staff: (kind, a, name) => 'FTS:' + kind + ':' + a + ':' + encodeURIComponent(name || ''),
+    /** A price list: items in tickets, shared between phones by QR code or copied text. */
+    menu: (items) => 'FTM:' + items.map((i) => encodeURIComponent(i.name) + '~' + i.price).join('|'),
     parse(text) {
       text = String(text || '').trim();
       const f = parseFamilyCode(text); if (f) return f;
+      const mm = text.match(/^FTM:(.*)$/s);
+      if (mm) {
+        const items = mm[1].split('|').map((p) => { const k = p.lastIndexOf('~'); let n = ''; try { n = decodeURIComponent(p.slice(0, k)).trim().slice(0, 30); } catch (e) { } const pr = Math.round(Number(p.slice(k + 1)) * 100) / 100; return n && pr > 0 ? { name: n, price: pr } : null; }).filter(Boolean);
+        return items.length ? { kind: 'M', items } : null;
+      }
       if (/^https?:\/\//i.test(text)) { const l = parseFairLink(text); return l ? { kind: 'L', address: l.address, test: l.test } : null; }
       const m = text.match(/^FTS:([BS]):((?:0x|xdc)[0-9a-fA-F]{40})(?::(.*))?$/i);
       if (m) { let name = ''; try { name = decodeURIComponent(m[3] || ''); } catch (e) { } return { kind: m[1].toUpperCase(), address: normAddr(m[2]), name }; }

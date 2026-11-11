@@ -73,21 +73,52 @@
     }
   }
 
+  /**
+   * Called on every refresh. Remembers that this phone joined, shows the name the organiser gave it
+   * (that's the name families see), and sends leftover XDC back by itself if the phone is removed.
+   */
+  async function status(kind, nameEl) {
+    const want = kind === 'booth' ? F.ROLES.BOOTH : F.ROLES.STALL;
+    const role = await myRole();
+    if (role === want) {
+      F.fstore.set('joined', 1); F.fstore.del('returned');
+      try { const l = await F.state.fair.label(F.myAddress()); if (l) { F.store.set(kind + '.name', l); if (nameEl) nameEl.textContent = l; } } catch (e) { }
+    } else if (role === F.ROLES.NONE && F.fstore.get('joined') && !F.fstore.get('returned')) {
+      await returnLeftover(null, false, true);
+    }
+    const removed = role === F.ROLES.NONE && !!F.fstore.get('joined');
+    return { role, joined: role === want, removed };
+  }
+  /** The join notice: "not set up yet" for new phones, "removed" for phones the organiser took off the team. */
+  function joinNote(box, st) {
+    box.hidden = st.joined;
+    const m = $('[data-joinmsg]', box);
+    if (m && st.removed) m.innerHTML = '<b>This phone isn\'t on the team any more.</b> Its leftover XDC has gone back to the organiser. If that was a mistake, show this phone\'s code to the organiser.';
+  }
+  /** Rename: once added, the organiser's name is the one families see, so only they can change it. */
+  async function rename(kind, nameEl) {
+    const st = await status(kind, nameEl);
+    const what = kind === 'booth' ? 'booth' : 'stall';
+    if (st.joined) return F.alertSheet('Ask the organiser', 'Families see the name the organiser set for this ' + what + ': "' + (F.store.get(kind + '.name', '') || what) + '". To change it, ask the organiser to tap this ' + what + ' in their team list and choose Rename.');
+    const r = await F.sheet({ title: kind === 'booth' ? 'Name this booth' : 'Stall name', html: '<label class="field"><input class="input" id="nm" maxlength="30" value="' + F.esc(F.store.get(kind + '.name', '')) + '"></label><p class="small muted">The organiser sees this name when they scan your code.</p>', buttons: [{ label: 'Save', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }], validate: (ov) => ($('#nm', ov).value.trim() ? null : 'Enter a name.') });
+    if (r.value) { F.store.set(kind + '.name', $('#nm', r.el).value.trim()); if (nameEl) nameEl.textContent = F.store.get(kind + '.name'); }
+  }
+
   /** Warn when fee credit is low. */
   async function creditCheck(box) {
     try {
       const c = await F.creditBalance();
       const low = F.state.provider ? (await F.state.provider.send('eth_gasPrice', []).then((g) => BigInt(g) * 300000n * 25n)) : 0n;
-      if (c < low) { box.innerHTML = '<b>Fee credit is low</b> (' + F.xdc(c) + ' XDC). Ask the organiser to top up this phone: they scan its code.'; box.hidden = false; }
+      if (c < low) { box.innerHTML = '<b>Fee credit is low</b> (' + F.xdc(c) + ' XDC). Ask the organiser to top up this phone from their team list.'; box.hidden = false; }
       else box.hidden = true;
     } catch (e) { }
   }
 
-  /** After the fair closes, send leftover XDC back to the organiser automatically (once). */
-  async function returnLeftover(noteEl, manual) {
+  /** After the fair closes (or this phone is removed), send leftover XDC back to the organiser automatically (once). */
+  async function returnLeftover(noteEl, manual, removed) {
     try {
       const info = F.state.info;
-      if (!info || info.isOpen) { if (manual) await F.alertSheet('The fair is still open', 'Leftover fee credit goes back to the organiser once the fair closes.'); return; }
+      if (!info || (info.isOpen && !removed)) { if (manual) await F.alertSheet('The fair is still open', 'Leftover fee credit goes back to the organiser once the fair closes.'); return; }
       if (!manual && F.fstore.get('returned')) { if (noteEl) noteEl.innerHTML = '<p class="small muted">Leftover fee credit has been returned to the organiser.</p>'; return; }
       const bal = await F.creditBalance();
       const gp = BigInt(await F.state.provider.send('eth_gasPrice', []));
@@ -100,5 +131,5 @@
     } catch (e) { if (manual) F.showError(e); }
   }
 
-  window.Staff = { setup, myCode, myRole, waitUntilAdded, creditCheck, returnLeftover };
+  window.Staff = { setup, myCode, myRole, waitUntilAdded, status, joinNote, rename, creditCheck, returnLeftover };
 })();
