@@ -39,7 +39,7 @@
   }
 
   function createWizard() {
-    const today = new Date(); const iso = today.toISOString().slice(0, 10);
+    const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     return F.wizard('create', [
       {
         id: 'welcome',
@@ -212,9 +212,31 @@
         id: 'invite',
         render: () => ({
           title: 'Invite your helpers',
-          html: '<p>Send each helper the right link. When they open it, their phone shows a code: scan it from your dashboard to add them.</p>' + linkBlock('Ticket booth helpers', 'booth') + linkBlock('Stall helpers', 'stall') + linkBlock('Families', 'family'),
-          next: 'Go to my dashboard',
-          onOpen: (el) => wireLinks(el)
+          html: '<p>Helpers set up their own phones first. Show them this code, or share the link in your committee group chat so they can do it at home.</p>' + inviteHtml(false),
+          next: 'Next',
+          onOpen: (el) => wireInvite(el)
+        })
+      },
+      {
+        id: 'addhelpers',
+        render: () => ({
+          title: 'Add your helpers',
+          html: '<p>Once a helper has set up their phone, it shows a code. Tap <b>Start scanning</b> and scan each helper\'s phone one after another, then add them all at once.</p>' +
+            '<button class="btn" data-startscan>Start scanning</button><div class="notice ok" data-added hidden></div>' +
+            '<p class="small muted">Not everyone ready yet? You can add helpers any time from your dashboard, including on the day.</p>',
+          next: 'I\'ll add them later', nextStyle: 'secondary',
+          onOpen: (el) => {
+            let total = 0;
+            $('[data-startscan]', el).onclick = async () => {
+              const n = await addHelpers();
+              if (!n) return;
+              total += n;
+              const box = $('[data-added]', el); box.hidden = false;
+              box.textContent = total + (total === 1 ? ' helper is' : ' helpers are') + ' on your team. Scan more, or go to your dashboard.';
+              $('[data-startscan]', el).textContent = 'Scan more helpers';
+              $('[data-next]', el).textContent = 'Go to my dashboard'; $('[data-next]', el).classList.remove('secondary');
+            };
+          }
         })
       }
     ], { net: F.network().dev ? null : F.store.get('net', 50) });
@@ -231,6 +253,123 @@
     $$('[data-share]', el).forEach((b) => (b.onclick = async () => { if (navigator.share) { try { await navigator.share({ title: F.state.info.name + ': ' + b.dataset.label, url: b.dataset.share }); } catch (e) { } } else F.copyText(b.dataset.share); }));
     $$('[data-qr]', el).forEach((b) => (b.onclick = () => F.sheet({ title: 'Scan to open', html: '<div class="qr">' + F.qrSvg(b.dataset.qr) + '</div>', buttons: [{ label: 'Close', value: null, style: 'secondary' }] })));
   }
+  // ================================================================ invite helpers
+  /** One screen, two tabs, one big QR at a time. Everyone of that kind scans the same code. */
+  function inviteHtml(withPrint) {
+    return '<div class="tabs"><button class="tab on" data-tab="stall">Stall helpers</button><button class="tab" data-tab="booth">Ticket booth</button></div>' +
+      '<div class="card center"><div class="qr" data-iqr></div><p class="small muted" data-ihint></p>' +
+      '<div class="grid2"><button class="btn secondary small" data-ishare>Share link</button><button class="btn secondary small" data-icopy>Copy link</button></div>' +
+      (withPrint ? '<button class="btn ghost small" data-iprint style="margin-top:6px">Print a helper sheet</button>' : '') + '</div>';
+  }
+  function wireInvite(el) {
+    const label = { stall: 'Stall helpers', booth: 'Ticket booth helpers' };
+    const hint = {
+      stall: 'Everyone running a stall scans this same code. Several people can scan it one after another.',
+      booth: 'For the people selling tickets for cash or card. Usually one to three phones.'
+    };
+    const show = (role) => {
+      const url = F.appUrl(role);
+      $$('[data-tab]', el).forEach((t) => t.classList.toggle('on', t.dataset.tab === role));
+      $('[data-iqr]', el).innerHTML = F.qrSvg(url);
+      $('[data-ihint]', el).textContent = hint[role];
+      $('[data-icopy]', el).onclick = () => F.copyText(url);
+      $('[data-ishare]', el).onclick = async () => {
+        const text = F.state.info.name + ': ' + label[role] + '. Open this link on your phone and follow the steps: ' + url;
+        if (navigator.share) { try { await navigator.share({ title: F.state.info.name + ': ' + label[role], text, url }); } catch (e) { } } else F.copyText(url);
+      };
+    };
+    $$('[data-tab]', el).forEach((t) => (t.onclick = () => show(t.dataset.tab)));
+    const pr = $('[data-iprint]', el); if (pr) pr.onclick = () => { $$('.overlay').forEach((o) => o.remove()); helperSheet(); };
+    show('stall');
+  }
+  function openInvite() {
+    return F.sheet({ title: 'Invite your helpers', html: inviteHtml(true), buttons: [{ label: 'Done', value: null, style: 'secondary' }], onOpen: wireInvite });
+  }
+  function helperSheet() {
+    const part = (title, role, what) => '<div style="text-align:center"><h2 style="margin:0 0 4px">' + title + '</h2><p style="color:var(--mist);margin:0 0 12px">' + what + '</p><div class="qr" style="max-width:300px">' + F.qrSvg(F.appUrl(role)) + '</div></div>';
+    $('#posterBody').innerHTML = '<div style="max-width:860px;margin:0 auto;padding:20px">' +
+      '<h1 style="font-size:2.2rem;margin:0 0 4px;text-align:center">' + esc(F.state.info.name) + '</h1><p style="font-size:1.2rem;color:var(--mist);margin:0 0 24px;text-align:center">Helpers: set up your phone</p>' +
+      '<div class="helper-sheet">' + part('Running a stall?', 'stall', 'Food, games, rides or donations') + part('Selling tickets?', 'booth', 'At the ticket booth') + '</div>' +
+      '<ol style="font-size:1.15rem;max-width:560px;margin:24px auto;line-height:1.7"><li>Scan <b>your</b> code with your phone\'s camera.</li><li>Follow the steps on screen and save the app to your home screen.</li><li>When your phone shows a code, show it to the organiser to be added.</li></ol>' +
+      '<p style="margin-top:24px;color:var(--mist);text-align:center">' + F.BEACON.replace('class="mark"', 'style="width:22px;height:22px;vertical-align:-5px"') + ' Fair Tickets by XDC Outpost · xdcoutpost.xyz</p></div>';
+    F.showView('poster');
+  }
+
+  // ================================================================ add helpers (scan many, add all)
+  const BOOTH_TICKETS = 2000;
+  /** Scan helper phones one after another, then add them all. Returns how many were added. */
+  async function addHelpers() {
+    const roleOf = (k) => (k === 'B' ? F.ROLES.BOOTH : F.ROLES.STALL);
+    const onTeam = new Map(team.map((m) => [m.address.toLowerCase(), m]));
+    const list = await F.scan({
+      title: 'Scan your helpers',
+      hint: 'Scan each helper\'s phone, one after another',
+      finishLabel: (n) => 'Add ' + n + (n === 1 ? ' helper' : ' helpers'),
+      multi: (p) => {
+        if (p.kind !== 'B' && p.kind !== 'S') return { error: 'That\'s not a helper\'s code. Ask them to open their booth or stall link.' };
+        const ex = onTeam.get(p.address.toLowerCase());
+        if (ex && ex.role === roleOf(p.kind)) return { error: (ex.name || 'This helper') + ' is already on your team.' };
+        return (p.kind === 'B' ? 'Ticket booth' : 'Stall') + (p.name && p.name !== 'Ticket booth' ? ': ' + p.name : '');
+      }
+    });
+    if (!list || !list.length) return 0;
+
+    // Names: fill gaps and number repeats so the team list stays readable.
+    const used = new Set(team.map((m) => (m.name || '').toLowerCase()));
+    const helpers = list.map((c) => {
+      let base = (c.name || '').trim() || (c.kind === 'B' ? 'Ticket booth' : 'Stall');
+      let name = base, k = 2;
+      while (used.has(name.toLowerCase())) name = base + ' ' + k++;
+      used.add(name.toLowerCase());
+      return { address: c.address, kind: c.kind, name };
+    });
+    const booths = helpers.filter((h) => h.kind === 'B').length, n = helpers.length;
+
+    // Defaults: tickets for each booth, XDC for every phone. All can be changed later from the team list.
+    const orgTix = await F.ticketBalance(F.state.info.organiser);
+    const perBooth = booths ? (F.units(BOOTH_TICKETS) < orgTix / BigInt(booths) ? F.units(BOOTH_TICKETS) : orgTix / BigInt(booths)) : 0n;
+    const credit = F.ethers.parseEther(String(F.CFG.staffCredit));
+    const gp = BigInt(await F.state.provider.send('eth_gasPrice', []));
+    const need = credit * BigInt(n) + gp * 250000n * BigInt(n);
+    const have = await F.creditBalance();
+
+    const rows = '<ul class="list">' + helpers.map((h) => '<li><b>' + esc(h.name) + '</b>' + (h.name.toLowerCase().startsWith(h.kind === 'B' ? 'ticket booth' : 'stall') ? '' : ' <span class="muted small">' + (h.kind === 'B' ? 'Ticket booth' : 'Stall') + '</span>') + '</li>').join('') + '</ul>';
+    if (have < need) {
+      const r = await F.sheet({
+        title: 'Add XDC first',
+        html: rows + '<div class="notice warn">Adding ' + n + (n === 1 ? ' helper' : ' helpers') + ' needs about ' + esc(F.xdc(need)) + ' XDC (' + esc(F.CFG.staffCredit) + ' XDC per phone for its network fees). You have ' + esc(F.xdc(have)) + ' XDC.</div><p class="small muted">Add XDC, then scan these helpers again.</p>',
+        buttons: [{ label: 'Add XDC', value: 'add' }, { label: 'Cancel', value: null, style: 'secondary' }]
+      });
+      if (r.value === 'add') $('#addXdcBtn').click();
+      return 0;
+    }
+    const ok = await F.sheet({
+      title: 'Add ' + n + (n === 1 ? ' helper?' : ' helpers?'),
+      html: rows + '<p class="small muted">' + (booths ? 'Each ticket booth gets ' + F.fmt(perBooth) + ' tickets to sell. ' : '') + 'Each phone gets ' + esc(F.CFG.staffCredit) + ' XDC for its network fees. You can change names, tickets and XDC later from your team list.</p>',
+      buttons: [{ label: 'Add ' + n + (n === 1 ? ' helper' : ' helpers'), value: true }, { label: 'Cancel', value: false, style: 'secondary' }]
+    });
+    if (!ok.value) return 0;
+
+    const b = F.busy('Adding 1 of ' + n + '…');
+    let done = 0;
+    try {
+      for (const h of helpers) {
+        b.update('Adding ' + (done + 1) + ' of ' + n + ': ' + h.name + '…');
+        await F.call('fair', 'setStaff', [h.address, roleOf(h.kind), h.name, false, h.kind === 'B' ? perBooth : 0n], credit);
+        done++;
+      }
+      b.close();
+      F.track('team/added-' + n);
+      F.splash('Added', n === 1 ? helpers[0].name + ' is ready' : n + ' helpers are ready');
+    } catch (e) {
+      b.close();
+      await F.showError(e);
+      if (done) await F.alertSheet('Some helpers were added', done + ' of ' + n + ' were added. Scan the rest again to finish.');
+    }
+    if ($('[data-view="dash"]') && !$('[data-view="dash"]').hidden) dashboard();
+    return done;
+  }
+
   function openLinks() {
     $('#linkList').innerHTML = linkBlock('Ticket booth helpers', 'booth') + linkBlock('Stall helpers', 'stall') + linkBlock('Families', 'family') + linkBlock('Live tally screen (for a TV or monitor)', 'tally') +
       '<button class="btn" data-poster>Print the family poster</button>' +
@@ -264,7 +403,7 @@
     if (!F.hasBackedUp()) notes.push('<div class="notice warn"><b>Save your backup.</b> It\'s the only way to manage this fair from another phone.<div><button class="btn small" id="bkNow">Save it now</button></div></div>');
     $('#statusNote').innerHTML = notes.join('');
     const bk = $('#bkNow'); if (bk) bk.onclick = async () => { await F.backupSheet(); dashboard(); };
-    $('#closeBtn').hidden = !info.isOpen; $('#addHelperBtn').hidden = !info.isOpen; $('#fixBtn').hidden = !info.isOpen; $('#fairSettingsBtn').hidden = !info.isOpen;
+    $('#closeBtn').hidden = !info.isOpen; $('#addHelperBtn').hidden = !info.isOpen; $('#inviteBtn').hidden = !info.isOpen; $('#fixBtn').hidden = !info.isOpen; $('#fairSettingsBtn').hidden = !info.isOpen;
     F.showView('dash');
     try {
       const [x, t] = await Promise.all([F.creditBalance(), F.ticketBalance()]);
@@ -280,7 +419,7 @@
       return '<li class="tap" data-m="' + m.address + '"><div class="ico">' + (m.role === F.ROLES.BOOTH ? F.ICON.ticket : F.ICON.bag) + '</div><div class="grow"><b>' + esc(m.name || (m.role === 1 ? 'Ticket booth' : 'Stall')) + (m.featured ? ' ★' : '') + '</b><span>' +
         (m.role === F.ROLES.BOOTH ? 'Ticket booth' : 'Stall') + (x !== null ? ' · ' + F.xdc(x) + ' XDC' : '') + '</span></div><div class="amt">' + (t !== null ? F.fmt(t) : '…') + '<div class="small muted" style="font-weight:400">tickets</div></div></li>';
     }));
-    $('#team').innerHTML = rows.length ? rows.join('') : '<li class="empty">No helpers yet. Send them their links, then tap Add a helper.</li>';
+    $('#team').innerHTML = rows.length ? rows.join('') : '<li class="empty">No helpers yet. Tap Invite to send them the link, then Add helpers to scan their phones.</li>';
     $$('#team [data-m]').forEach((li) => (li.onclick = () => memberActions(team.find((m) => F.sameAddr(m.address, li.dataset.m)))));
   }
 
@@ -290,25 +429,8 @@
     dashboard();
   }
 
-  $('#addHelperBtn').onclick = async () => {
-    const c = await F.scan({ title: 'Scan the helper\'s phone', hint: 'They open their link and show the code', check: (p) => (p.kind === 'B' || p.kind === 'S' ? null : 'That\'s not a helper\'s code. Ask them to open the booth or stall link.') });
-    if (!c) return;
-    const isBooth = c.kind === 'B';
-    const r = await F.sheet({
-      title: isBooth ? 'Add a ticket booth' : 'Add a stall',
-      html: '<label class="field"><span>Name</span><input class="input" id="hn" maxlength="30" value="' + esc(c.name || (isBooth ? 'Ticket booth' : '')) + '" placeholder="e.g. Cake Stall"></label>' +
-        (isBooth ? '<label class="field"><span>Tickets to load for selling</span><input class="input" id="ht" type="number" min="0" value="2000"></label>' : '<label class="check"><input type="checkbox" id="hf"> <span>Show this stall on the live tally (good for a donation stall)</span></label>') +
-        '<label class="field"><span>XDC for its network fees</span><input class="input" id="hx" type="number" min="0" step="0.5" value="' + esc(F.CFG.staffCredit) + '"></label>',
-      buttons: [{ label: 'Add', value: true, submit: true }, { label: 'Cancel', value: false, style: 'secondary' }],
-      validate: (ov) => ($('#hn', ov).value.trim() ? null : 'Enter a name.')
-    });
-    if (!r.value) return;
-    const name = $('#hn', r.el).value.trim();
-    const tickets = isBooth ? F.units(Math.max(0, Number($('#ht', r.el).value) || 0)) : 0n;
-    const featured = !isBooth && $('#hf', r.el).checked;
-    const value = F.ethers.parseEther(String(Math.max(0, Number($('#hx', r.el).value) || 0)));
-    await act('Adding ' + name + '…', () => F.call('fair', 'setStaff', [c.address, isBooth ? 1 : 2, name, featured, tickets], value), () => F.splash('Added', name + ' is ready'));
-  };
+  $('#addHelperBtn').onclick = () => addHelpers();
+  $('#inviteBtn').onclick = () => openInvite();
 
   async function memberActions(m) {
     if (!m) return;

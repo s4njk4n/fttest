@@ -657,16 +657,22 @@
   }
 
   // ------------------------------------------------------------------ scanner
-  function scan({ title = 'Scan the code', hint = 'Point the camera at the code', check } = {}) {
+  /**
+   * Camera scanner. Normal mode resolves with the first good code.
+   * Multi mode (multi: fn(parsed, raw) -> label string or { error }) stays open, lists each code,
+   * and resolves with the array of codes when the person taps the finish button (or null on cancel).
+   */
+  function scan({ title = 'Scan the code', hint = 'Point the camera at the code', check, multi, finishLabel } = {}) {
     return new Promise((resolve) => {
       $$('.toast').forEach((t) => t.remove());
       const el = document.createElement('div'); el.className = 'scanner';
       el.innerHTML = '<video playsinline muted autoplay></video><div class="frame"></div><div class="top"><b></b><span></span></div>' +
-        '<div class="bottom"><div class="msg" hidden></div><button class="btn secondary" data-cancel>Cancel</button><button class="link" data-type>Camera not working? Type or paste the code</button></div>';
+        '<div class="bottom"><div class="msg" hidden></div>' + (multi ? '<ul class="scanlist" hidden></ul><button class="btn" data-finish hidden></button>' : '') + '<button class="btn secondary" data-cancel>Cancel</button><button class="link" data-type>Camera not working? Type or paste the code</button></div>';
       $('.top b', el).textContent = title; $('.top span', el).textContent = hint;
       document.body.appendChild(el);
       const video = $('video', el), msg = $('.msg', el);
       let stream, done = false, lastBad = '', lastBadAt = 0, detector = null;
+      const got = [], seen = new Set(), list = multi ? $('.scanlist', el) : null, fin = multi ? $('[data-finish]', el) : null;
       const finish = (val) => { if (done) return; done = true; if (stream) stream.getTracks().forEach((t) => t.stop()); el.remove(); resolve(val); };
       const consider = (raw) => {
         if (done || !raw) return false;
@@ -676,9 +682,25 @@
           if (raw !== lastBad || Date.now() - lastBadAt > 2500) { msg.textContent = err; msg.hidden = false; chime(false); }
           lastBad = raw; lastBadAt = Date.now(); return false;
         }
-        chime(true); finish(parsed); return true;
+        if (!multi) { chime(true); finish(parsed); return true; }
+        const key = parsed.address ? parsed.address.toLowerCase() : raw;
+        if (seen.has(key)) return false; // the camera keeps seeing the same code: ignore quietly
+        const res = multi(parsed, raw);
+        if (res && res.error) {
+          if (raw !== lastBad || Date.now() - lastBadAt > 2500) { msg.className = 'msg'; msg.textContent = res.error; msg.hidden = false; chime(false); }
+          lastBad = raw; lastBadAt = Date.now(); return false;
+        }
+        seen.add(key); got.push(parsed); chime(true);
+        msg.className = 'msg ok'; msg.textContent = 'Got it. Scan the next one.'; msg.hidden = false;
+        const li = document.createElement('li'); li.textContent = '✓ ' + res; list.prepend(li); list.hidden = false;
+        fin.textContent = (finishLabel || ((n) => 'Done (' + n + ')'))(got.length); fin.hidden = false;
+        return true;
       };
-      $('[data-cancel]', el).onclick = () => finish(null);
+      if (fin) fin.onclick = () => finish(got.slice());
+      $('[data-cancel]', el).onclick = async () => {
+        if (got.length && !(await confirmSheet('Stop scanning?', 'The ' + got.length + ' code' + (got.length === 1 ? '' : 's') + ' you scanned won\'t be used.', 'Stop', 'Keep scanning', true))) return;
+        finish(null);
+      };
       $('[data-type]', el).onclick = async () => {
         const r = await sheet({
           title: 'Type or paste the code',
@@ -771,7 +793,7 @@
         el.innerHTML = '<div class="inner"><div class="wizard-top"><button class="link" data-back' + (i === 0 || s.noBack ? ' style="visibility:hidden"' : '') + '>← Back</button>' +
           '<div class="dots">' + v.map((_, k) => '<i class="' + (k === pos ? 'on' : '') + '"></i>').join('') + '</div><span style="width:48px"></span></div>' +
           (s.title ? '<h1>' + esc(s.title) + '</h1>' : '') + (s.html || '') + '<div class="err notice bad" hidden></div>' +
-          (s.next === false ? '' : '<button class="btn huge" data-next>' + esc(s.next || 'Next') + '</button>') + '</div>';
+          (s.next === false ? '' : '<button class="btn huge' + (s.nextStyle ? ' ' + s.nextStyle : '') + '" data-next>' + esc(s.next || 'Next') + '</button>') + '</div>';
         const go = async (dir) => {
           if (dir > 0 && s.validate) { const err = await s.validate(el, data); if (err) { const e = $('.err', el); e.textContent = err; e.hidden = false; return; } }
           i += dir;

@@ -1,6 +1,6 @@
 /* Fair Tickets: offline helper. Keeps the apps opening on patchy fair Wi-Fi.
    Network first (so updates arrive straight away), falling back to the saved copy. */
-const CACHE = 'fair-tickets-v2';
+const CACHE = 'fair-tickets-v3';
 const CORE = [
   './', './index.html', './config.js',
   './shared/app.css', './shared/core.js', './shared/staff.js', './shared/contracts.js',
